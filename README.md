@@ -57,3 +57,6 @@ For any questions or feedback, please reach out to me at `@sweattypalms` on disc
 
 - Inspired heavily by Hypixel Skyblock
 - Developed for educational purposes
+- I still have a lot to learn, so any feedback is appreciated!
+
+## _made with ❤️ by [sweattypalms](https://youtube.com/sweattypalms)!_

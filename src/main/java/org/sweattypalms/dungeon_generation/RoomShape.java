@@ -49,6 +49,26 @@ public enum RoomShape {
         this.avoid = avoid;
     }
 
+    public static RoomShape[] getPossibleShapes(int gridSize) {
+        // always allow 1 space in either direction after the shape.
+        // get points in the direction of the shape
+        Set<RoomShape> possibleShapes = new HashSet<>();
+        for (RoomShape shape : RoomShape.values()) {
+            boolean fits = true;
+            for (Point point : shape.points) {
+                if (point.x() >= gridSize-1 || point.y() >= gridSize-1 || point.x() < 0 || point.y() < 0) {
+                    fits = false;
+                    break;
+                }
+            }
+            if (fits) {
+                possibleShapes.add(shape);
+            }
+        }
+
+        return possibleShapes.toArray(new RoomShape[0]);
+    }
+
     public static Point[] rotatePoints90Degrees(Point[] points) {
         Point[] rotatedPoints = new Point[points.length];
         for (int i = 0; i < points.length; i++) {

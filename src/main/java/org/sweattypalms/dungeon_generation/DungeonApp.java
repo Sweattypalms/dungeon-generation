@@ -23,7 +23,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class DungeonApp extends Application {
-    public static final int GRID_SIZE = 6;
+    public static final int GRID_SIZE = DungeonConfig.getInstance().getGridSize();
     public static final int CELL_SIZE = 100;
     public static final int CONNECTION_THICKNESS = 50;
     public static final int PADDING = 10;

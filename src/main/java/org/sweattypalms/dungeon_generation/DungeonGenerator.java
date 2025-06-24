@@ -6,7 +6,6 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class DungeonGenerator {
-    private static final int GRID_SIZE = 6;
     private final Room[][] grid;
     @Getter
     private List<Room> mainPath;
@@ -14,16 +13,12 @@ public class DungeonGenerator {
     private final LinkedHashMap<Room, RoomShapeHandler> shapeHandlers = new LinkedHashMap<>();
     private Random random;
 
-    private final Map<RoomType, Integer> specialRoomRequirements = new HashMap<>(
-            Map.of(
-                    RoomType.YELLOW, 1,
-                    RoomType.ORANGE, 1,
-                    RoomType.PURPLE, 3
-            )
-    );
+    private final Map<RoomType, Integer> specialRoomRequirements;
 
     public DungeonGenerator() {
-        grid = new Room[GRID_SIZE][GRID_SIZE];
+        DungeonConfig config = DungeonConfig.getInstance();
+        grid = new Room[config.getGridSize()][config.getGridSize()];
+        specialRoomRequirements = config.getSpecialRoomRequirements();
     }
 
     public void generate(long seed) {
@@ -32,14 +27,21 @@ public class DungeonGenerator {
         this.mainPath = new ArrayList<>();
         this.shapeHandlers.clear();
 
-        initializeGrid();
-        placeStartAndEndRooms();
-        generateMainPath();
-        placeFairyRoom();
-        generateAndPlaceShapes();
-        cleanupPaths0();
-        connectAllRooms();
-        placeSpecialRooms();
+        try {
+            initializeGrid();
+            placeStartAndEndRooms();
+            generateMainPath();
+            placeFairyRoom();
+            generateAndPlaceShapes();
+            cleanupPaths0();
+            connectAllRooms();
+            placeSpecialRooms();
+        } catch (Exception e) {
+            System.err.println("Error during dungeon generation: " + e.getMessage());
+            //retry with a new seed
+            System.err.println("Retrying with seed: " + (seed+1));
+            generate(seed+1);
+        }
 
         long endTime = System.nanoTime();
         String time = String.format("%.2f", (endTime - startTime) / 1_000_000.0);
@@ -48,8 +50,8 @@ public class DungeonGenerator {
     }
 
     private void initializeGrid() {
-        for (int i = 0; i < GRID_SIZE; i++) {
-            for (int j = 0; j < GRID_SIZE; j++) {
+        for (int i = 0; i < grid.length; i++) {
+            for (int j = 0; j < grid.length; j++) {
                 Point point = new Point(i, j);
                 grid[i][j] = new Room(point, RoomType.BROWN);
             }
@@ -62,7 +64,7 @@ public class DungeonGenerator {
 
         do {
             endCoords = getRandomWallPosition(random);
-        } while (isSameWall(startCoords, endCoords) || distance(startCoords, endCoords) < 4);
+        } while (isSameWall(startCoords, endCoords) || distance(startCoords, endCoords) < 2);
 
         Room startRoom = getRoomAt(startCoords);
         Room endRoom = getRoomAt(endCoords);
@@ -76,20 +78,20 @@ public class DungeonGenerator {
         int side = random.nextInt(4);
         y = switch (side) {
             case 0 -> {
-                x = random.nextInt(GRID_SIZE);
+                x = random.nextInt(grid.length);
                 yield 0; // Top wall
             }
             case 1 -> {
-                x = random.nextInt(GRID_SIZE);
-                yield GRID_SIZE - 1; // Bottom wall
+                x = random.nextInt(grid.length);
+                yield grid.length - 1; // Bottom wall
             }
             case 2 -> {
                 x = 0;
-                yield random.nextInt(GRID_SIZE); // Left wall
+                yield random.nextInt(grid.length); // Left wall
             }
             default -> {
-                x = GRID_SIZE - 1;
-                yield random.nextInt(GRID_SIZE); // Right wall
+                x = grid.length - 1;
+                yield random.nextInt(grid.length); // Right wall
             }
         };
         return new Point(x, y);
@@ -111,7 +113,7 @@ public class DungeonGenerator {
         Room startRoom = getRoomOfType(RoomType.GREEN);
         Room endRoom = getRoomOfType(RoomType.RED);
 
-        int MIN_PATH_LENGTH = 8, MAX_PATH_LENGTH = 14;
+        int MIN_PATH_LENGTH = 3, MAX_PATH_LENGTH = 14;
 
         List<Room> mainPath = DungeonUtils.generateMainPath(random, grid, startRoom, endRoom, MIN_PATH_LENGTH, MAX_PATH_LENGTH);
 
@@ -142,7 +144,7 @@ public class DungeonGenerator {
     }
 
     private void generateAndPlaceShapes() {
-        RoomShape[] shapes = RoomShape.values();
+        RoomShape[] shapes = RoomShape.getPossibleShapes(grid.length);
         shapes = Arrays.stream(shapes).filter(shape -> !shape.isAvoid()).toArray(RoomShape[]::new);
 
         int specialRoomCount = specialRoomRequirements.values().stream().mapToInt(_ -> 1).sum();
@@ -187,8 +189,8 @@ public class DungeonGenerator {
     }
 
     private void placeShape(RoomShape shape, int rot) {
-        int x = random.nextInt(GRID_SIZE);
-        int y = random.nextInt(GRID_SIZE);
+        int x = random.nextInt(grid.length);
+        int y = random.nextInt(grid.length);
 
         Point coords = new Point(x, y);
         if (canPlaceShape(shape, coords, rot)) {
@@ -204,7 +206,7 @@ public class DungeonGenerator {
             int dy = coords.y() + point.y();
 
             // Check if the point is within the grid
-            if (dx < 0 || dx >= GRID_SIZE || dy < 0 || dy >= GRID_SIZE) {
+            if (dx < 0 || dx >= grid.length || dy < 0 || dy >= grid.length) {
                 return false;
             }
 
@@ -345,7 +347,7 @@ public class DungeonGenerator {
             Room top = grid[x - 1][y];
             addNeighbor(room, stems, visited, shapeHandler, top);
         }
-        if (x < GRID_SIZE - 1) {
+        if (x < grid.length - 1) {
             Room bottom = grid[x + 1][y];
             addNeighbor(room, stems, visited, shapeHandler, bottom);
         }
@@ -353,7 +355,7 @@ public class DungeonGenerator {
             Room left = grid[x][y - 1];
             addNeighbor(room, stems, visited, shapeHandler, left);
         }
-        if (y < GRID_SIZE - 1) {
+        if (y < grid.length - 1) {
             Room right = grid[x][y + 1];
             addNeighbor(room, stems, visited, shapeHandler, right);
         }
@@ -482,12 +484,12 @@ public class DungeonGenerator {
 
                     int nonSameNeighbors = 0;
                     if (x > 0 && !shapeHandler.getRooms().contains(grid[x - 1][y])) nonSameNeighbors++;
-                    if (x < GRID_SIZE - 1 && !shapeHandler.getRooms().contains(grid[x + 1][y])) nonSameNeighbors++;
+                    if (x < grid.length - 1 && !shapeHandler.getRooms().contains(grid[x + 1][y])) nonSameNeighbors++;
                     if (y > 0 && !shapeHandler.getRooms().contains(grid[x][y - 1])) nonSameNeighbors++;
-                    if (y < GRID_SIZE - 1 && !shapeHandler.getRooms().contains(grid[x][y + 1])) nonSameNeighbors++;
+                    if (y < grid.length - 1 && !shapeHandler.getRooms().contains(grid[x][y + 1])) nonSameNeighbors++;
 
-                    if (x == 0 || x == GRID_SIZE - 1) nonSameNeighbors++;
-                    if (y == 0 || y == GRID_SIZE - 1) nonSameNeighbors++;
+                    if (x == 0 || x == grid.length - 1) nonSameNeighbors++;
+                    if (y == 0 || y == grid.length - 1) nonSameNeighbors++;
 
                     if (nonSameNeighbors >= 3) {
                         edge = possRoom;
@@ -705,13 +707,13 @@ public class DungeonGenerator {
         if (x > 0) {
             neighbors.add(grid[x - 1][y]);
         }
-        if (x < GRID_SIZE - 1) {
+        if (x < grid.length - 1) {
             neighbors.add(grid[x + 1][y]);
         }
         if (y > 0) {
             neighbors.add(grid[x][y - 1]);
         }
-        if (y < GRID_SIZE - 1) {
+        if (y < grid.length - 1) {
             neighbors.add(grid[x][y + 1]);
         }
 
